@@ -1,0 +1,40 @@
+[package]
+name = "pagelens"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_latest", "thread_safe", "image_latest"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff", "bmp", "webp"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+regex = "1"
+# DOCX / PPTX input: zip container (pure-Rust inflate) and XML.
+zip = { version = "9.5.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+quick-xml = "0.42.0"
+ocrs = { version = "0.14.0", default-features = false, features = ["onnx"], optional = true }
+rten = { version = "0.28.0", default-features = false, features = ["onnx_format"], optional = true }
+rten-text = { version = "0.28.0", optional = true }
+rten-tensor = { version = "0.28.0", optional = true }
+
+[features]
+# OCR and the name model are left out by default: pagelens returns the text
+# layer, the personal data it can be sure of, and a `needs_review` list of
+# scans, text images and doubtful names for the caller to read or confirm
+# (for example with an LLM). Build with `--features ocr,ner` to bring them in.
+default = ["embed-pdfium"]
+# Built-in OCR (ocrs, pure Rust) with its models compiled into the binary.
+ocr = ["dep:ocrs", "dep:rten"]
+# Built-in NER model (DistilBERT-NER, Apache-2.0, int8) for names and places
+# in running text, used by PII detection.
+ner = ["dep:rten", "dep:rten-text", "dep:rten-tensor"]
+# PDFium compiled into the binary and unpacked to a cache folder on first run.
+embed-pdfium = []
+
+[[bin]]
+name = "pagelens"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1

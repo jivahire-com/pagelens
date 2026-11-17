@@ -1,0 +1,31 @@
+# Build output
+/target
+
+# Python environments for benchmarks
+/.venv
+/.venv-docling
+/.venv-judge
+__pycache__/
+
+# Downloaded or generated assets (fetch with scripts/fetch-assets.sh)
+/vendor
+/models/*
+!/models/fonts/
+
+# Data: benchmark copies and PRIVATE resumes (never commit)
+/data
+/corpus
+/corpus_scanned
+/demo
+/bench/cache
+/bench/judge
+
+# OS files
+.DS_Store
+
+# Host build for development; the release binary is built in the backend image's Debian
+/target-host
+/target-full
+/target-lean
+/bin
+/target-trixie
