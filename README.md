@@ -12,6 +12,10 @@ clean Markdown, the personal data it found, and a list of what it couldn't read.
 - `needs_review` lists the scanned pages and images with text in them, so only those go to OCR
   or a vision model.
 
+Compared with Docling on the public DP-Bench set, one CPU core: better text and reading order
+(0.962 vs 0.927), weaker tables (0.916 vs 0.982 detection), 28 ms vs 7.4 s per page, 80 MB vs
+2.5 GB of memory. See [Benchmarks](#benchmarks).
+
 > **Status:** early release (0.1). Interfaces may change.
 
 ## Use cases
@@ -121,23 +125,54 @@ cargo build --release --features ocr,ner    # binary of about 100 MB
   Converting the file to PDF first avoids all three.
 - Unusual layouts can still be read in the wrong order.
 
-## Benchmark
+## Benchmarks
 
-[DP-Bench](https://huggingface.co/datasets/upstage/dp-bench): 200 pages, scored with the
-dataset's own scorer. The other rows are the results that ship with the dataset.
+**In short:** on the public DP-Bench set, pagelens reads text in the right order better than
+Docling and most commercial services. Docling finds and rebuilds tables better. pagelens does it
+about 340 times faster on one CPU core, in 1/30 of the memory, from a 16 MB file.
+
+### pagelens vs Docling
+
+Both ran on the same 200 DP-Bench pages, on the same machine, limited to **one CPU core**.
+Docling 2.120 ran with its default settings (layout and table models, OCR where needed) on CPU.
+
+| | pagelens 0.1 | Docling 2.120 |
+|---|---|---|
+| Text and reading order (NID) | **0.962** | 0.927 |
+| Table detection F1 | 0.916 | **0.982** |
+| Table structure and content (TEDS) | 0.907 | **0.933** |
+| Table structure only (TEDS-S) | 0.929 | **0.943** |
+| Time for all 200 pages | **5.5 s** | 32 min, plus 27 s to load models |
+| Time per page | **28 ms** (average) | 7.4 s median, 26 s at the 95th percentile |
+| CPU time | **5.6 s** | 1,878 s |
+| Peak memory | **80 MB** | 2.5 GB |
+| Install size | **16 MB**, one file | 2.8 GB (Docker image with models) |
+| Needs | nothing | Python, PyTorch, model downloads |
+
+Docling's memory kept growing past 2.5 GB on longer runs, so it was run in fresh processes of
+10 to 50 pages. Its time above excludes the model loading each process repeats.
+
+### All systems
+
+[DP-Bench](https://huggingface.co/datasets/upstage/dp-bench), scored with the dataset's own
+scorer. pagelens and Docling were run here; the other rows are the results that ship with the
+dataset.
 
 | System | Text and reading order | Table detection F1 | TEDS | TEDS-S |
 |---|---|---|---|---|
-| **pagelens (no ML)** | 0.962 | **0.916** | 0.907 | 0.929 |
+| **pagelens (no ML)** | 0.962 | 0.916 | 0.907 | 0.929 |
+| docling | 0.927 | **0.982** | 0.933 | 0.943 |
 | upstage_enhanced | **0.966** | 0.898 | 0.956 | **0.976** |
+| upstage_standard | 0.963 | 0.906 | **0.961** | 0.973 |
 | aws | 0.960 | 0.690 | 0.955 | 0.970 |
 | unstructured | 0.918 | 0.887 | 0.803 | 0.895 |
 | llamaparse | 0.905 | 0.548 | 0.907 | 0.932 |
 | microsoft | 0.870 | 0.850 | 0.779 | 0.857 |
 | google | 0.822 | 0.835 | 0.783 | 0.807 |
 
-TEDS scores table structure and content; TEDS-S scores structure only. pagelens takes a median
-of 38 ms per page on 2 CPU cores, including process start.
+NID scores the text and its reading order. TEDS scores table structure and content; TEDS-S
+scores structure only. To reproduce: `bench/dpbench.py` for pagelens and the scores,
+`bench/run_docling.py dpbench` for Docling.
 
 ## Contributing
 

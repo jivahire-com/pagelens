@@ -1,11 +1,12 @@
 """Run Docling over our synthetic corpus and DP-Bench, caching its output.
 
-    .venv-docling/bin/python bench/run_docling.py [corpus|dpbench|all]
+    .venv-docling/bin/python bench/run_docling.py [corpus|dpbench|all] [--pypdfium]
 
-Docling runs with its standard layout and TableFormer models. Its native
-docling-parse backend has no build for macOS 12 on Intel, so Docling's
-officially supported PyPdfium backend is used instead. Page text comes from
-the PDF either way; layout and tables come from Docling's models.
+Docling runs with its default settings: layout and TableFormer models, OCR
+where needed, on CPU. `--pypdfium` swaps in Docling's PyPdfium backend for
+machines without a docling-parse build (e.g. macOS 12 on Intel). Docling's
+memory grows over a long run; on a small machine, run slices of DP-Bench in
+fresh processes and merge the predictions.
 
 Outputs:
   bench/cache/docling/<name>.json           {"text", "tables", "ms"}  (corpus)
@@ -39,8 +40,9 @@ def converter():
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    # CPU: the Apple GPU path (MPS) needs macOS 13.2+. Default options otherwise.
     opts = PdfPipelineOptions(accelerator_options=AcceleratorOptions(device=AcceleratorDevice.CPU))
+    if "--pypdfium" not in sys.argv:
+        return DocumentConverter(format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)})
     return DocumentConverter(format_options={
         InputFormat.PDF: PdfFormatOption(pipeline_options=opts, backend=PyPdfiumDocumentBackend)})
 
