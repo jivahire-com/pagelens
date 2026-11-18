@@ -5,6 +5,11 @@ and the fonts built in. OCR (`ocr`) and the name model (`ner`) are opt-in
 build features and are off by default. Scans and text images are listed in
 `needs_review` instead of being read.
 
+`ocr/` is a separate, optional crate (`pagelens-ocr`) that reads those scans
+locally with PP-OCRv6 and then runs pagelens on them. Build it from `ocr/`
+(`cargo build --release`, after `ocr/fetch-models.sh`) and test it with
+`cargo test` there. It depends on the parser crate but doesn't change it.
+
 ## Before and after every change
 
 - Run `cargo build --release`, then `cargo test`, then `bench/check_all.sh`.

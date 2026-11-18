@@ -10,6 +10,7 @@ pagelens is licensed under the Apache License 2.0 (see LICENSE). It bundles or l
 | Noto Sans, Noto Sans Devanagari | SIL Open Font License 1.1 | https://github.com/notofonts | Text in `models/fonts/OFL.txt`. Embedded in the binary and in PDFs it writes; not to be sold on their own. |
 | DistilBERT-NER (dslim/distilbert-NER), int8-quantised by `scripts/quantize_ner.py` | Apache-2.0 | https://huggingface.co/dslim/distilbert-NER | Modified (quantised) model. |
 | ocrs text detection and recognition models | **To confirm before a public release**: the ocrs-models repository declares no licence; the models are trained on HierText (CC-BY-SA 4.0) | https://github.com/robertknight/ocrs-models | Downloaded at build time, not committed. |
+| PP-OCRv6 tiny text detection and recognition models (pagelens-ocr only) | Apache-2.0 (PaddleOCR; ONNX conversion by RapidOCR, Apache-2.0) | https://github.com/PaddlePaddle/PaddleOCR, https://github.com/RapidAI/RapidOCR | Downloaded by `ocr/fetch-models.sh` (SHA-256 checked), not committed; compiled into `pagelens-ocr`. |
 
 ## Rust crates (default build)
 

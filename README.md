@@ -29,12 +29,23 @@ Compared with Docling on the public DP-Bench set, one CPU core: better text and 
 | RAG and search indexing | The document split into sections under their headings |
 | Catching hidden text | White-on-white and invisible text reported in `hidden_text` and kept out of the Markdown |
 
-**Not for:** scans or handwriting in the default build. It lists them for OCR instead; see
-[Optional features](#optional-features).
+**Not for:** scans or handwriting. It lists scans for OCR instead; the optional
+[`pagelens-ocr`](#scanned-documents) reads them locally.
 
 ## Build
 
 You need [Rust](https://rustup.rs) (stable), `curl` and `tar`. On Windows, use Git Bash.
+Pick one of two setups:
+
+| Setup | Binary | Size | Per digital file | Per scanned page |
+|---|---|---|---|---|
+| Digital documents only | `pagelens` | about 16 MB | about 0.1 s, under 20 MB of memory | not read: listed in `needs_review` |
+| Digital and scanned documents | `pagelens-ocr` | about 25 MB | the same | about 2 s and 400 MB of memory |
+
+Times are for a typical laptop CPU. To limit how many CPU cores a scan uses, see
+[Using fewer CPU cores](#using-fewer-cpu-cores).
+
+**Digital documents only:**
 
 ```bash
 git clone https://github.com/jivahire-com/pagelens.git
@@ -43,7 +54,15 @@ scripts/fetch-assets.sh --no-ner   # downloads PDFium
 cargo build --release              # -> target/release/pagelens
 ```
 
-The binary is self-contained. Copy it to any machine with the same OS and CPU type.
+**Digital and scanned documents:** the same first three lines, then:
+
+```bash
+ocr/fetch-models.sh                # downloads the OCR models (6.3 MB) and checks them
+cd ocr && cargo build --release    # -> ocr/target/release/pagelens-ocr
+```
+
+`pagelens-ocr` contains the whole parser, so it is the only binary you need for this setup.
+Each binary is self-contained. Copy it to any machine with the same OS and CPU type.
 
 ## Use
 
@@ -83,6 +102,135 @@ for item in doc["needs_review"]:                   # scans, text images, doubtfu
 | `needs_review[]` | What wasn't read, with a `reason` and an `action` (`read_with_llm`, `confirm_with_llm` ...) |
 | `hidden_text` | Text in the file that a reader can't see |
 
+## Scanned documents
+
+A scanned page has no text layer: it is a picture of text. `pagelens` finds such pages, and
+images with text in them, and lists them without reading them. `pagelens-ocr` (built from
+[`ocr/`](ocr/)) reads them on your machine with the PP-OCRv6 OCR models, then runs the same
+parser on the result. It also reads image files (PNG, JPEG, TIFF, BMP, WebP). It takes
+`--redact` and `--known` like `pagelens`, and both give the same JSON format.
+
+The examples below use a made-up one-page CV saved as an image-only PDF (`scan.pdf`).
+
+### 1. pagelens only
+
+```bash
+pagelens scan.pdf
+```
+
+Every field of [Output](#output) is present. On a digital file they hold the document. On a
+scanned page they hold a placeholder and a pointer:
+
+```json
+{
+  "pages": [{ "ocr": { "reason": "scanned page (image without text layer)", "engine": null, "words": 0 }, "...": "..." }],
+  "markdown": "<!-- scanned page not read: see needs_review -->",
+  "person": { "name": null, "email": null, "phone": null },
+  "needs_review": [
+    { "kind": "scanned_page", "page": 1, "reason": "scanned page (image without text layer)", "action": "read_with_llm" }
+  ]
+}
+```
+
+- `pages[].ocr.engine` is `null`: the page was found but not read.
+- `needs_review[]` has a `scanned_page` item for each such page, and an `image` item (with a
+  `bbox`) for each image with text in it on a digital page.
+- In the Markdown, `<!-- image not read: see needs_review -->` marks where an image's text
+  belongs, as the placeholder above does for a page.
+
+Use this mode when files are mostly digital, or when scans go to an OCR service or a
+vision LLM of your choice.
+
+### 2. pagelens-ocr only
+
+```bash
+pagelens-ocr scan.pdf
+pagelens-ocr --redact --known details.json scan.pdf photo.jpg
+```
+
+The scanned text is read and analysed like a digital page:
+
+```json
+{
+  "pages": [{ "ocr": { "reason": "scanned page (image without text layer)", "engine": "pp-ocrv6-tiny", "words": 36 }, "...": "..." }],
+  "person": {
+    "name":  { "text": "Jane Doe", "confidence": 0.95, "basis": "the first line at the top that reads as a name; matches the email address" },
+    "email": { "text": "jane.doe@example.com", "confidence": 0.99, "basis": "found on page 1" },
+    "phone": { "text": "+1 555 0100", "confidence": 0.85, "basis": "found on page 1" }
+  },
+  "needs_review": []
+}
+```
+
+`markdown_redacted` for the same scan:
+
+```markdown
+## [PERSON_NAME]
+
+[EMAIL] | [PHONE] | Springfield
+
+### EXPERIENCE
+
+Data Analyst, Acme Corp, 2021 - 2024
+
+Built weekly sales reports in SQL and Python.
+
+### EDUCATION
+
+BSc Statistics, State University, 2020
+
+### SKILLS
+
+SQL, Python, Excel, Tableau
+```
+
+- `pages[].ocr.engine` is `"pp-ocrv6-tiny"` on every page that was read.
+- The `scanned_page` and `image` items are gone from `needs_review`, because they have been read.
+- `needs_review[]` can instead hold a `confirm_with_llm` item (`kind` `email` or `phone`, with the
+  page) when that value was on a line read with low confidence.
+- Digital files come out exactly as from `pagelens`, at the same speed: the OCR models load
+  only when a page needs them.
+
+Use this mode when scans are common and must be read on your own machine.
+
+### 3. Both together
+
+The parser is fast and small, and most files have nothing to read. Run `pagelens` on every file
+and `pagelens-ocr` only on files that need it, then use its result in place of the first:
+
+```python
+import json, subprocess
+
+def parse(path, redact=True):
+    flags = ["--redact"] if redact else []
+    run = lambda tool: json.loads(subprocess.run([tool, *flags, path], capture_output=True, check=True).stdout)
+    doc = run("pagelens")
+    if any(item["kind"] in ("scanned_page", "image") for item in doc["needs_review"]):
+        doc = run("pagelens-ocr")      # same format, scans read
+    return doc
+```
+
+This needs both binaries (about 40 MB together). The work done is the same as running
+`pagelens-ocr` on every file, so mode 2 alone is simpler unless `pagelens` is already installed.
+
+### Using fewer CPU cores
+
+While it reads a scanned page, `pagelens-ocr` uses every CPU core by default. On a server that
+is busy with other work, you may want it to use fewer. Set `RTEN_NUM_THREADS` to the number of
+cores it may use. Each page then takes a little longer, but the other cores stay free:
+
+```bash
+RTEN_NUM_THREADS=2 pagelens-ocr scan.pdf
+```
+
+| `RTEN_NUM_THREADS` | Time per scanned page |
+|---|---|
+| not set (all cores) | about 2 s |
+| `2` | about 2.5 s |
+| `1` | about 4 s |
+
+Memory stays about 400 MB either way. Digital files aren't affected.
+
 ## Personal data
 
 pagelens finds:
@@ -116,7 +264,6 @@ cargo build --release --features ocr,ner    # binary of about 100 MB
 
 ## Limitations
 
-- Scans are listed, not read, unless you build with `ocr`.
 - Word files:
   - page headers and footers aren't read;
   - link addresses are dropped;
