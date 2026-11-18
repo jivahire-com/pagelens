@@ -53,7 +53,7 @@ const BULLET_GAP_EM: f32 = 4.0;
 /// "column" of their own and reading order lists all markers first, then all
 /// items. Numbers end up apart from their text when the file sets them as a
 /// separate piece (a tab, or a zero-width space as Google Docs writes):
-/// 58 numbered items on one real resume printed as lone numbers.
+/// without this, numbered items printed as lone numbers.
 fn attach_bullets(mut segs: Vec<Segment>) -> Vec<Segment> {
     let marker = |s: &Segment| is_bullet_token(s.text.trim()) || is_number_token(s.text.trim());
     let mut used = vec![false; segs.len()];
@@ -307,7 +307,7 @@ fn to_segment(r: &Run, glyphs: &[Glyph]) -> Option<Segment> {
             // inferred. Words that look split by an inferred space ("manag
             // ement") come from a space sorted after the next letter, which
             // the backend prevents; dropping inferred spaces at small gaps
-            // glued 106 phrases on 472 real resumes ("toolsandframeworks"),
+            // glued phrases together ("toolsandframeworks"),
             // because in some fonts the boxes overlap across real word spaces.
             let gap = g.bbox.x0 - px;
             let space = match space_at {

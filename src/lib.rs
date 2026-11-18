@@ -197,7 +197,7 @@ pub fn analyse_page(page: &PageContent) -> PageResult {
     // table's cells hold its words. Grid layouts (skill boxes, two-column
     // job panels) can be taken for a table whose rows miss some of the text
     // inside its box; without this check that text vanished from the output
-    // (on one real resume, a fifth of its words). Text is never dropped for
+    // (sometimes a large share of a page). Text is never dropped for
     // being inside a table.
     let cell_words: Vec<std::collections::HashSet<String>> = tables
         .iter()
@@ -254,9 +254,8 @@ pub fn analyse_page(page: &PageContent) -> PageResult {
 
 /// A link whose text does not show where it goes ("LinkedIn", "GitHub",
 /// "Email me") becomes a Markdown link, `[LinkedIn](https://...)`, so the
-/// address is kept: on 472 real resumes, 208 links in 64 of them pointed to a
-/// profile or mailbox that was nowhere in the visible text (80 of them on an
-/// icon with no text at all). A link whose text already is the address is
+/// address is kept: links often point to a profile or mailbox that is nowhere
+/// in the visible text, sometimes on an icon with no text at all. A link whose text already is the address is
 /// left as it is. Returns the addresses of links on icons, as new lines at
 /// the icon's place.
 fn link_targets(page: &PageContent, segs: &mut [Segment], tables: &mut [Table], body_size: f32) -> Vec<Segment> {
@@ -321,8 +320,7 @@ fn link_targets(page: &PageContent, segs: &mut [Segment], tables: &mut [Table], 
 /// a heading between two tables, not a row: Word resumes laid out as one big
 /// table put each section name in a merged row. The table is split there;
 /// the name's own line is then outside every table and the Markdown step
-/// makes it a heading (on 472 real resumes, 24 section names were left as
-/// table rows).
+/// makes it a heading (otherwise section names are left as table rows).
 fn split_at_section_rows(tables: Vec<Table>) -> Vec<Table> {
     let mut out = Vec::new();
     for t in tables {
@@ -536,10 +534,9 @@ fn find_document_name(page: &PageResult) -> Vec<(usize, usize, usize)> {
 /// resume usually spells the name: a name sharing a word with it is 0.95, a
 /// top line with no email to compare is 0.75, and one the email does not
 /// back is 0.5. When no top line reads as a name, a short line near the top
-/// that shares a word with the email address is the name (on 472 real
-/// resumes, 88 of the 161 resumes without a name had one), then the largest
-/// text at the top. There is no name model: on the same resumes it added 64
-/// names over these rules, of which the email address backed only 22.
+/// that shares a word with the email address is the name, then the largest
+/// text at the top. There is no name model: in testing it added few names over
+/// these rules, and the email address backed only a minority of them.
 fn mark_document_name(pages: &mut [PageResult]) -> (Vec<String>, Option<Detail>) {
     if pages.is_empty() || !about_a_person(pages) {
         return (Vec::new(), None);
@@ -632,8 +629,7 @@ fn matches_email(name: &str, locals: &[String]) -> bool {
 
 /// A short line among the first lines of page 1 that shares a word with the
 /// email address: the name, in whatever case or font. Lines, not blocks: the
-/// name is often joined into one block with the title under it (all 82 such
-/// names on 472 real resumes were).
+/// name is often joined into one block with the title under it (usually).
 fn line_matching_email(page: &PageResult, locals: &[String]) -> Option<(usize, usize, usize)> {
     if locals.is_empty() {
         return None;
@@ -944,7 +940,7 @@ fn propagate_pii(pages: &mut [PageResult]) {
 }
 
 /// A bullet drawn as a mark no larger than this share of the font size
-/// (small bullet pictures on real resumes measure 0.76 to 0.79)...
+/// (small bullet pictures typically measure 0.76 to 0.79)...
 const BULLET_MARK_MAX: f32 = 0.9;
 /// ...and no smaller than this share (specks and rule ends are not bullets).
 const BULLET_MARK_MIN: f32 = 0.12;
@@ -1341,8 +1337,8 @@ fn contact(pages: &[PageResult], pii: &[PiiFinding], kind: &str) -> Option<Detai
 
 /// Below this confidence a name is listed for confirmation...
 const CONFIRM_BELOW: f32 = 0.9;
-/// ... and an email or phone: a single well-formed one is trusted (on 455
-/// real resumes both agreed with the reference about 97% of the time); when
+/// ... and an email or phone: a single well-formed one is trusted (it
+/// almost always agrees with the reference); when
 /// the resume gives several different ones, `contact` drops to 0.7.
 const CONFIRM_CONTACT_BELOW: f32 = 0.8;
 

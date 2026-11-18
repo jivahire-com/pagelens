@@ -621,7 +621,7 @@ fn read_page(page: &PdfPage) -> Result<PageContent, PdfiumError> {
             // past its middle: lines are put together in order of left edges,
             // and in some fonts the next word's box starts a little before
             // this one ends, which put the space after that word's first
-            // letter ("toolsa nd"; 27 times on 8 of 472 real resumes).
+            // letter ("toolsa nd").
             if ch == ' ' && c.is_generated().unwrap_or(true) {
                 if let Some(prev) = out.glyphs.iter().rev().find(|g| !g.space).cloned() {
                     let x0 = prev.bbox.x0 + 0.6 * prev.bbox.width();

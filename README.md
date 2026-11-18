@@ -14,7 +14,8 @@ clean Markdown, the personal data it found, and a list of what it couldn't read.
 
 Compared with Docling on the public DP-Bench set, one CPU core: better text and reading order
 (0.962 vs 0.927), weaker tables (0.916 vs 0.982 detection), 28 ms vs 7.4 s per page, 80 MB vs
-2.5 GB of memory. See [Benchmarks](#benchmarks).
+2.5 GB of memory. On resumes, it finds emails and phones about as reliably as Docling, in
+about 0.1 s instead of about a minute. See [Benchmarks](#benchmarks).
 
 > **Status:** early release (0.1). Interfaces may change.
 
@@ -173,6 +174,24 @@ dataset.
 NID scores the text and its reading order. TEDS scores table structure and content; TEDS-S
 scores structure only. To reproduce: `bench/dpbench.py` for pagelens and the scores,
 `bench/run_docling.py dpbench` for Docling.
+
+### Resumes
+
+On a set of real resumes we can't publish (personal data), pagelens and Docling ran on the same
+server. The reference is the contact details an existing Docling + LLM pipeline had stored.
+
+| | pagelens | Docling |
+|---|---|---|
+| Email found, matching the reference | **99.5%** | 98.9% (with a regex over its text) |
+| Phone found, matching the reference | 97.8% | **99.4%** (with a regex over its text) |
+| Name | found with a confidence score | not extracted |
+| Time per resume | **about 0.1 s** | 47 to 71 s |
+| Memory | **under 200 MB** | 1.8 to 2.7 GB |
+
+Given to the same LLM to fill in a structured profile (jobs, dates, education), pagelens's
+Markdown gave results about as close to Docling's as two Docling runs are to each other. Most
+of the remaining differences were Docling dropping older jobs, dates or icon-only links.
+Because the resumes are private, this part can't be reproduced; the DP-Bench results above can.
 
 ## Contributing
 
