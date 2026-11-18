@@ -174,6 +174,29 @@ NID scores the text and its reading order. TEDS scores table structure and conte
 scores structure only. To reproduce: `bench/dpbench.py` for pagelens and the scores,
 `bench/run_docling.py dpbench` for Docling.
 
+### Resumes
+
+On a set of real resumes we can't publish (personal data). The reference is the contact details
+an existing Docling + LLM pipeline had stored. For Docling, the email and phone were taken from
+its text with a regex.
+
+| | pagelens | Docling |
+|---|---|---|
+| Email found, matching the reference | **99.5%** | 98.9% |
+| Phone found, matching the reference | 97.8% | **99.4%** |
+| Name | found, with a confidence score | not extracted |
+| Time per resume (median) | **0.07 s** | 27 s (95th percentile 65 s) |
+| CPU time per resume (median) | **0.07 s** | 46 s |
+| Peak memory (median) | **13 MB** | 3.2 GB |
+
+**Compute note:** both ran on the same server, 2 CPU cores and 8 GB of memory, with no core
+limit, so Docling could use both cores (that is why its CPU time is higher than its run time).
+pagelens times cover every resume, each in a fresh process. Docling times are from a sample of
+the same resumes, with its models already loaded, so they leave out its model loading.
+
+Given to the same LLM to fill in a structured profile (jobs, dates, education), pagelens's
+Markdown gave results about as close to Docling's as two Docling runs are to each other.
+Because the resumes are private, this part can't be reproduced; the DP-Bench results above can.
 
 ## Contributing
 
